@@ -22,3 +22,22 @@ variable "availability_zones" {
   description = "List of availability zones to use"
   type        = list(string)
 }
+
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "source_ami" {
+  type    = string
+  default = "ami-0866a3c8686eaeeba"
+}
+
+variable "ssh_username" {
+  type    = string
+  default = "ubuntu"
+}
+
+variable "ami_id" {
+  type = string
+}
