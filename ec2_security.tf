@@ -51,8 +51,6 @@ resource "aws_instance" "temp_instance" {
 
   disable_api_termination = false
 
-<<<<<<< Updated upstream
-=======
   user_data = <<-EOF
     #!/bin/bash
     echo "DATABASE_USERNAME='${aws_db_instance.my_rds_instance.username}'" >> /etc/environment
@@ -66,16 +64,12 @@ resource "aws_instance" "temp_instance" {
 
 EOF
 
->>>>>>> Stashed changes
   tags = {
     Name = "temp_instance"
   }
 
   depends_on = [aws_internet_gateway.gw, aws_subnet.public]
 }
-<<<<<<< Updated upstream
- 
-=======
 
 resource "aws_security_group" "db_security_group" {
   name        = "db_security_group"
@@ -98,4 +92,3 @@ resource "aws_security_group" "db_security_group" {
 
   vpc_id = aws_vpc.csye6225_vpc.id
 }
->>>>>>> Stashed changes
