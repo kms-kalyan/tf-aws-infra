@@ -36,8 +36,4 @@ variable "ssh_username" {
 
 variable "ami_id" {
   type = string
-<<<<<<< Updated upstream
 }
-=======
-}
->>>>>>> Stashed changes
