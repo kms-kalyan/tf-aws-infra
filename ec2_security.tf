@@ -51,10 +51,44 @@ resource "aws_instance" "temp_instance" {
 
   disable_api_termination = false
 
+  user_data = <<-EOF
+    #!/bin/bash
+    echo "DATABASE_USERNAME='${aws_db_instance.my_rds_instance.username}'" >> /etc/environment
+    echo "DATABASE_PASSWORD='${aws_db_instance.my_rds_instance.password}'" >> /etc/environment
+    echo "DATABASE_HOSTNAME='${aws_db_instance.my_rds_instance.address}:5432/csye6225/'" >> /etc/environment
+    # Add any other startup commands needed to run your application here
+
+    systemctl daemon-reload
+    systemctl enable webapp.service
+    systemctl restart webapp.service
+
+EOF
+
   tags = {
     Name = "temp_instance"
   }
 
   depends_on = [aws_internet_gateway.gw, aws_subnet.public]
 }
- 
+
+resource "aws_security_group" "db_security_group" {
+  name        = "db_security_group"
+  description = "Security group for RDS instances"
+
+  # Ingress rule to allow traffic from the application security group
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.temp_sg.id]
+  }
+
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    security_groups = [aws_security_group.temp_sg.id]
+  }
+
+  vpc_id = aws_vpc.csye6225_vpc.id
+}
