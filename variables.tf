@@ -13,10 +13,6 @@ variable "private_subnet_cidrs" {
   type        = list(string)
 }
 
-variable "region" {
-  description = "AWS region to deploy resources"
-  type        = string
-}
 
 variable "availability_zones" {
   description = "List of availability zones to use"
@@ -40,4 +36,8 @@ variable "ssh_username" {
 
 variable "ami_id" {
   type = string
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes
