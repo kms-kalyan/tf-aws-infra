@@ -1,6 +1,5 @@
-resource "aws_db_parameter_group" "postgresql_param_group" {
-  name        = "my-postgresql-15-group"
-  family      = "postgres15" # Ensure this matches the PostgreSQL version
-  description = "Custom parameter group for PostgreSQL 15"
-
+resource "aws_db_parameter_group" "mysql_param_group" {
+  name        = "my-mysql-8-group"
+  family      = "mysql8.0"
+  description = "Custom parameter group for MySQL 8.0"
 }

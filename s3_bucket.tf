@@ -1,118 +1,126 @@
-# Generate a random UUID for the bucket name
-resource "random_uuid" "bucket_name" {}
-
-# Define your S3 bucket without the deprecated 'acl' argument
 resource "aws_s3_bucket" "my_bucket" {
-  bucket        = random_uuid.bucket_name.result
+  bucket        = "profile-pics-${random_uuid.bucket_uuid.result}"
+  acl           = "private"
   force_destroy = true
 
-  tags = {
-    Name        = "My S3 Bucket"
-    Environment = "Dev"
-  }
-}
-
-# Use aws_s3_bucket_acl to set the ACL for the bucket
-resource "aws_s3_bucket_acl" "my_bucket_acl" {
-  bucket = aws_s3_bucket.my_bucket.id
-  acl    = "private"
-}
-
-# Server-side encryption configuration for the S3 bucket
-resource "aws_s3_bucket_server_side_encryption_configuration" "my_bucket_sse" {
-  bucket = aws_s3_bucket.my_bucket.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# Lifecycle configuration for transitioning objects to STANDARD_IA storage class after 30 days
-resource "aws_s3_bucket_lifecycle_configuration" "my_bucket_lifecycle" {
-  bucket = aws_s3_bucket.my_bucket.id
-
-  rule {
-    id     = "TransitionToStandardIA"
-    status = "Enabled"
-
+  lifecycle_rule {
+    enabled = true
     transition {
       days          = 30
       storage_class = "STANDARD_IA"
     }
   }
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
 }
 
-# IAM Role for CloudWatch Agent
-resource "aws_iam_role" "cloudwatch_agent_role" {
-  name = "CloudWatchAgentServerRole"
+resource "random_uuid" "bucket_uuid" {}
+
+
+resource "aws_cloudwatch_log_group" "csye6225" {
+  name              = "csye6225"
+  retention_in_days = 7
+}
+
+resource "aws_iam_role" "cloudwatch_role" {
+  name = "CloudWatchAgentRole"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17",
+    Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole",
-        Effect = "Allow",
+        Action = "sts:AssumeRole"
         Principal = {
           Service = "ec2.amazonaws.com"
         }
-      }
+        Effect = "Allow"
+        Sid    = ""
+      },
     ]
   })
 }
 
-# Attach CloudWatchAgentServerPolicy to the IAM role
-resource "aws_iam_role_policy_attachment" "cloudwatch_agent_policy" {
-  role       = aws_iam_role.cloudwatch_agent_role.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-}
-
-# Optionally, attach AmazonSSMManagedInstanceCore for Systems Manager
-resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
-  role       = aws_iam_role.cloudwatch_agent_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-# Create a custom IAM policy for S3 and IAM operations
-resource "aws_iam_policy" "s3_and_iam_permissions_policy" {
-  name        = "S3AndIAMPermissionsPolicy"
-  description = "Policy to allow S3 ACL, Encryption, and IAM role creation"
+resource "aws_iam_policy" "cloudwatch_policy" {
+  name        = "CloudWatchPolicy"
+  description = "CloudWatch Policy - EC2"
 
   policy = jsonencode({
-    Version : "2012-10-17",
-    Statement : [
-      # Permissions for S3 Bucket ACL and Encryption Configuration
+    Version = "2012-10-17"
+    Statement = [
       {
-        Effect : "Allow",
-        Action : [
-          "s3:GetBucketAcl",
-          "s3:PutBucketAcl",
-          "s3:GetEncryptionConfiguration",
-          "s3:PutEncryptionConfiguration"
-        ],
-        Resource : [
-          "*"
+        Action = [
+          "cloudwatch:PutMetricData",
+          "logs:CreateLogGroup",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams",
+          "s3:ListAllMyBuckets"
+
         ]
+        Effect   = "Allow"
+        Resource = "*"
       },
-      # Permissions for IAM Role Creation and Policy Attachment
-      {
-        Effect : "Allow",
-        Action : [
-          "iam:CreateRole",
-          "iam:GetRole",
-          "iam:AttachRolePolicy",
-          "iam:PassRole",
-          "iam:CreatePolicy"
-        ],
-        Resource : "*"
-      }
     ]
   })
 }
 
-# Attach this policy to your user (replace with your actual username)
-resource "aws_iam_user_policy_attachment" "attach_user_policy" {
-  user       = "dev" # Replace with actual username
-  policy_arn = aws_iam_policy.s3_and_iam_permissions_policy.arn
+resource "aws_iam_role_policy_attachment" "cloudwatch_attach" {
+  policy_arn = aws_iam_policy.cloudwatch_policy.arn
+  role       = aws_iam_role.cloudwatch_role.name
 }
+
+# Instance profile to attach to EC2 instance
+resource "aws_iam_instance_profile" "cloudwatch_instance_profile" {
+  name = "CloudWatchInstanceProfile"
+  role = aws_iam_role.cloudwatch_role.name
+}
+
+# Create a hosted zone for your main domain
+resource "aws_route53_zone" "main" {
+  name = "madhusai.me"
+}
+
+resource "aws_route53_zone" "dev" {
+  name = "dev.madhusai.me"
+}
+
+# resource "aws_route53_record" "dev" {
+#   zone_id = aws_route53_zone.dev.zone_id
+#   name    = "dev.madhusai.me"
+#   type    = "A"
+#   ttl     = "300"
+#   records = [aws_instance.temp_instance.public_ip]
+# }
+
+resource "aws_route53_record" "dev" {
+  zone_id = aws_route53_zone.dev.zone_id
+  name    = "dev.madhusai.me"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.web_app_alb.dns_name
+    zone_id                = aws_lb.web_app_alb.zone_id
+    evaluate_target_health = true
+  }
+}
+
+# resource "aws_route53_zone" "demo" {
+#   name = "demo.madhusai.me"
+# }
+
+# resource "aws_route53_record" "demo" {
+#   zone_id = aws_route53_zone.demo.zone_id
+#   name    = "demo.madhusai.me"
+#   type    = "A"
+#   ttl     = "300"
+#   records = [aws_instance.temp_instance.public_ip]
+# }
