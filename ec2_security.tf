@@ -1,87 +1,128 @@
-resource "aws_instance" "temp_instance" {
-  ami                         = var.ami_id
-  instance_type               = "t2.small"
-  subnet_id                   = aws_subnet.public[0].id
-  vpc_security_group_ids      = [aws_security_group.temp_sg.id]
-  associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.cloudwatch_instance_profile.name
+# resource "aws_instance" "temp_instance" {
+#   ami                         = var.ami_id
+#   instance_type               = "t2.small"
+#   subnet_id                   = aws_subnet.public[0].id
+#   vpc_security_group_ids      = [aws_security_group.temp_sg.id]
+#   associate_public_ip_address = true
+#   iam_instance_profile        = aws_iam_instance_profile.cloudwatch_instance_profile.name
 
-  root_block_device {
-    volume_size           = 25
-    volume_type           = "gp2"
-    delete_on_termination = true
+#   root_block_device {
+#     volume_size           = 25
+#     volume_type           = "gp2"
+#     delete_on_termination = true
+#   }
+
+#   disable_api_termination = false
+
+#   user_data = <<-EOF
+# #!/bin/bash
+# echo "DATABASE_HOSTNAME=jdbc:mysql://${aws_db_instance.my_rds_instance.address}:3306/${aws_db_instance.my_rds_instance.username}?createDatabaseIfNotExist=true" | sudo tee -a /opt/webapp/app/.env > /dev/null
+# echo "DATABASE_USERNAME=${aws_db_instance.my_rds_instance.username}" | sudo tee -a /opt/webapp/app/.env > /dev/null
+# echo "DATABASE_PASSWORD=${aws_db_instance.my_rds_instance.password}" | sudo tee -a /opt/webapp/app/.env > /dev/null
+# echo "DB_PORT=5432" | sudo tee -a /opt/webapp/app/.env > /dev/null
+# echo "DB_HOST=${aws_db_instance.my_rds_instance.address}" | sudo tee -a /opt/webapp/app/.env > /dev/null
+# echo "S3_BUCKET_NAME=${aws_s3_bucket.my_bucket.bucket}" | sudo tee -a /opt/webapp/app/.env > /dev/null
+
+# sudo systemctl daemon-reload
+# sudo systemctl restart webapp.service
+
+# sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+#   -a fetch-config \
+#   -m ec2 \
+#   -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+#   -s
+
+#   EOF
+
+#   tags = {
+#     Name = "temp_instance"
+#   }
+
+#   depends_on = [aws_internet_gateway.gw, aws_subnet.public]
+# }
+
+resource "aws_launch_template" "web_app_launch_template" {
+  name_prefix   = "csye6225_asg"
+  image_id      = var.ami_id
+  instance_type = "t2.small"
+  key_name      = var.key_name
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.temp_sg.id]
   }
 
-  disable_api_termination = false
+  user_data = base64encode(<<-EOF
+#!/bin/bash
+echo "DATABASE_HOSTNAME=jdbc:mysql://${aws_db_instance.my_rds_instance.address}:3306/${aws_db_instance.my_rds_instance.username}?createDatabaseIfNotExist=true" | sudo tee -a /opt/webapp/app/.env > /dev/null
+echo "DATABASE_USERNAME=${aws_db_instance.my_rds_instance.username}" | sudo tee -a /opt/webapp/app/.env > /dev/null
+echo "DATABASE_PASSWORD=${aws_db_instance.my_rds_instance.password}" | sudo tee -a /opt/webapp/app/.env > /dev/null
+echo "DB_PORT=5432" | sudo tee -a /opt/webapp/app/.env > /dev/null
+echo "DB_HOST=${aws_db_instance.my_rds_instance.address}" | sudo tee -a /opt/webapp/app/.env > /dev/null
+echo "S3_BUCKET_NAME=${aws_s3_bucket.my_bucket.bucket}" | sudo tee -a /opt/webapp/app/.env > /dev/null
 
-  user_data = <<-EOF
-    #!/bin/bash
-    
-    # Set environment variables for database connection
-    echo "DATABASE_USERNAME='${aws_db_instance.my_rds_instance.username}'" >> /etc/environment
-    echo "DATABASE_PASSWORD='${aws_db_instance.my_rds_instance.password}'" >> /etc/environment
-    echo "DATABASE_HOSTNAME='${aws_db_instance.my_rds_instance.address}:5432/csye6225'" >> /etc/environment
-    
-    # Create cloudWatch.sh script for CloudWatch agent setup and configuration
-    cat <<'SCRIPT' > /home/ec2-user/cloudWatch.sh
-    #!/bin/bash
+sudo systemctl daemon-reload
+sudo systemctl restart webapp.service
 
-    # Install Unified CloudWatch Agent if not already installed
-    yum install -y amazon-cloudwatch-agent
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+  -s
 
-    # Fetch Instance ID dynamically using Instance Metadata API
-    INSTANCE_ID=\$(curl http://169.254.169.254/latest/meta-data/instance-id)
+  EOF
+  )
 
-    # Configure the CloudWatch agent (use Systems Manager Parameter Store or a local config file)
-    cat <<'CONFIG' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-    {
-      "agent": {
-        "metrics_collection_interval": 60,
-        "logfile": "/var/log/amazon-cloudwatch-agent.log"
-      },
-      "metrics": {
-        "append_dimensions": {
-          "InstanceId": "\$INSTANCE_ID"
-        },
-        "metrics_collected": {
-          "cpu": {
-            "measurement": ["cpu_usage_idle"]
-          }
-        }
-      },
-      "logs": {
-        "logs_collected": {
-          "files": [{
-            "file_path": "/var/log/messages",
-            "log_group_name": "/var/log/messages"
-          }]
-        }
-      }
-    }
-    CONFIG
+  iam_instance_profile {
+    name = aws_iam_instance_profile.cloudwatch_instance_profile.name
+  }
+}
 
-    # Restart CloudWatch Agent service
-    systemctl restart amazon-cloudwatch-agent.service
-    SCRIPT
+resource "aws_autoscaling_policy" "scale_up" {
+  name                   = "scale_up"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = aws_autoscaling_group.web_app_asg.name
 
-    # Make cloudWatch.sh executable and run it to configure CloudWatch agent
-    chmod +x /home/ec2-user/cloudWatch.sh
-    /home/ec2-user/cloudWatch.sh
+  metric_aggregation_type = "Average"
+}
 
-    
-    # Add any other startup commands needed to run your application here
-    
-    sudo systemctl daemon-reload
-    sudo systemctl enable webapp.service
-    sudo systemctl restart webapp.service
+resource "aws_autoscaling_policy" "scale_down" {
+  name                   = "scale_down"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = aws_autoscaling_group.web_app_asg.name
 
-EOF
+  metric_aggregation_type = "Average"
+}
 
-  tags = {
-    Name = "temp_instance"
+resource "aws_autoscaling_group" "web_app_asg" {
+  desired_capacity    = 3 # Set within min and max size
+  max_size            = 5
+  min_size            = 3
+  vpc_zone_identifier = [aws_subnet.public[0].id]
+
+  launch_template {
+    id      = aws_launch_template.web_app_launch_template.id
+    version = "$Latest"
   }
 
-  depends_on = [aws_internet_gateway.gw, aws_subnet.public]
+  target_group_arns = [aws_lb_target_group.web_app_tg.arn]
+
+  tag {
+    key                 = "Name"
+    value               = "WebAppInstance"
+    propagate_at_launch = true
+  }
+
+  health_check_type         = "EC2"
+  health_check_grace_period = 300
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_security_group" "temp_sg" {
@@ -109,9 +150,23 @@ resource "aws_security_group" "temp_sg" {
   }
 
   ingress {
-    from_port   = 8081
-    to_port     = 8081
+    from_port       = 8081
+    to_port         = 8081
+    protocol        = "tcp"
+    security_groups = [aws_security_group.load_balancer_sg.id]
+  }
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
     protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -121,70 +176,3 @@ resource "aws_security_group" "temp_sg" {
 
   depends_on = [aws_vpc.csye6225_vpc]
 }
-
-resource "aws_security_group" "db_security_group" {
-  name        = "db_security_group"
-  description = "Security group for RDS instances"
-
-  # Ingress rule to allow traffic from the application security group
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.temp_sg.id]
-  }
-
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    security_groups = [aws_security_group.temp_sg.id]
-  }
-
-  vpc_id = aws_vpc.csye6225_vpc.id
-}
-
-
-# Create an instance profile that includes the CloudWatch Agent Role
-resource "aws_iam_instance_profile" "cloudwatch_instance_profile" {
-  name = "CloudWatchAgentInstanceProfile"
-  role = aws_iam_role.cloudwatch_agent_role.name
-}
-
-
-# resource "aws_instance" "temp_instance" {
-#   ami                         = var.ami_id
-#   instance_type               = "t2.small"
-#   subnet_id                   = aws_subnet.public[0].id
-#   vpc_security_group_ids      = [aws_security_group.temp_sg.id]
-#   associate_public_ip_address = true
-#   iam_instance_profile = aws_iam_instance_profile.cloudwatch_instance_profile.name
-
-#   root_block_device {
-#     volume_size           = 25
-#     volume_type           = "gp2"
-#     delete_on_termination = true
-#   }
-
-#   disable_api_termination = false
-
-#   user_data = <<-EOF
-#     #!/bin/bash
-#     echo "DATABASE_USERNAME='${aws_db_instance.my_rds_instance.username}'" >> /etc/environment
-#     echo "DATABASE_PASSWORD='${aws_db_instance.my_rds_instance.password}'" >> /etc/environment
-#     echo "DATABASE_HOSTNAME='${aws_db_instance.my_rds_instance.address}:5432/csye6225'" >> /etc/environment
-
-#     # Add any other startup commands needed to run your application here
-
-#     sudo systemctl daemon-reload
-#     sudo systemctl enable webapp.service
-#     sudo systemctl restart webapp.service
-
-# EOF
-
-#   tags = {
-#     Name = "temp_instance"
-#   }
-
-#   depends_on = [aws_internet_gateway.gw, aws_subnet.public]
-# }

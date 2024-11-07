@@ -29,6 +29,11 @@ variable "source_ami" {
   default = "ami-0866a3c8686eaeeba"
 }
 
+variable "key_name" {
+  type    = string
+  default = "ami-0866a3c8686eaeeba"
+}
+
 variable "ssh_username" {
   type    = string
   default = "ubuntu"
@@ -37,3 +42,16 @@ variable "ssh_username" {
 variable "ami_id" {
   type = string
 }
+
+# variable "aws_access_key_id" {
+#   type = string
+# }
+# variable "aws_secret_access_key" {
+#   type = string
+# }
+# variable "sendgrid_api_key" {
+#   type = string
+# }
+# variable "sender_email" {
+#   type = string
+# }
