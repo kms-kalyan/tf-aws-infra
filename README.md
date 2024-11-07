@@ -7,7 +7,7 @@
 
 ## Setup
     1. Clone the Repository:
-        git clone https://github.com/{yourusername}/{yourrepository}.git
+        git clone https://github.com/kms-kalyan/tf-aws-infra.git
         cd yourrepository
 
     2. Configure AWS Credentials:
