@@ -113,14 +113,18 @@ resource "aws_route53_record" "dev" {
   }
 }
 
-# resource "aws_route53_zone" "demo" {
-#   name = "demo.madhusai.me"
-# }
+resource "aws_route53_zone" "demo" {
+  name = "demo.madhusai.me"
+}
 
-# resource "aws_route53_record" "demo" {
-#   zone_id = aws_route53_zone.demo.zone_id
-#   name    = "demo.madhusai.me"
-#   type    = "A"
-#   ttl     = "300"
-#   records = [aws_instance.temp_instance.public_ip]
-# }
+resource "aws_route53_record" "demo" {
+  zone_id = aws_route53_zone.demo.zone_id
+  name    = "demo.madhusai.me"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.web_app_alb.dns_name
+    zone_id                = aws_lb.web_app_alb.zone_id
+    evaluate_target_health = true
+  }
+}
