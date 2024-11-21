@@ -43,15 +43,18 @@ variable "ami_id" {
   type = string
 }
 
-# variable "aws_access_key_id" {
+# variable "database_host" {
 #   type = string
 # }
-# variable "aws_secret_access_key" {
+# variable "database_user" {
 #   type = string
 # }
-# variable "sendgrid_api_key" {
-#   type = string
-# }
-# variable "sender_email" {
-#   type = string
-# }
+variable "jar_path" {
+  type = string
+}
+variable "sendgrid_api_key" {
+  type = string
+}
+variable "instance_host" {
+  type = string
+}
