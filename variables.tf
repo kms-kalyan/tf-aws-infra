@@ -43,12 +43,6 @@ variable "ami_id" {
   type = string
 }
 
-# variable "database_host" {
-#   type = string
-# }
-# variable "database_user" {
-#   type = string
-# }
 variable "jar_path" {
   type = string
 }
@@ -56,5 +50,14 @@ variable "sendgrid_api_key" {
   type = string
 }
 variable "instance_host" {
+  type = string
+}
+variable "domain_name" {
+  type = string
+}
+variable "verify_link" {
+  type = string
+}
+variable "account_id" {
   type = string
 }

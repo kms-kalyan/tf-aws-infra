@@ -14,7 +14,8 @@ resource "aws_s3_bucket" "my_bucket" {
   server_side_encryption_configuration {
     rule {
       apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
+        sse_algorithm     = "aws:kms"
+        kms_master_key_id = aws_kms_key.s3_key.arn
       }
     }
   }
@@ -42,10 +43,10 @@ resource "aws_s3_bucket" "my_bucket" {
 resource "random_uuid" "bucket_uuid" {}
 
 
-resource "aws_cloudwatch_log_group" "csye6225" {
-  name              = "csye6225"
-  retention_in_days = 7
-}
+# resource "aws_cloudwatch_log_group" "csye6225" {
+#   name              = "csye6225"
+#   retention_in_days = 7
+# }
 
 resource "aws_iam_role" "cloudwatch_role" {
   name = "CloudWatchAgentRole"
@@ -70,10 +71,9 @@ resource "aws_iam_policy" "cloudwatch_policy" {
   description = "CloudWatch Policy - EC2"
 
   policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+    "Statement" : [
       {
-        Action = [
+        "Action" : [
           "cloudwatch:PutMetricData",
           "logs:CreateLogGroup",
           "s3:GetObject",
@@ -83,12 +83,22 @@ resource "aws_iam_policy" "cloudwatch_policy" {
           "logs:PutLogEvents",
           "logs:DescribeLogStreams",
           "s3:ListAllMyBuckets",
-          "SNS:Publish"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
+          "SNS:Publish",
+          "secretsmanager:GetSecretValue",
+          "kms:*"
+        ],
+        "Effect" : "Allow",
+        "Resource" : "*"
       },
-    ]
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "kms:Decrypt"
+        ],
+        "Resource" : "*"
+      }
+    ],
+    "Version" : "2012-10-17"
   })
 }
 
