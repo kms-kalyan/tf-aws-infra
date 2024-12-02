@@ -23,3 +23,7 @@
 
 ## Branch Protection
     The main branch is protected with required status checks to ensure code quality before merging.
+
+## Command to import SSL certificate into AWS
+
+aws acm import-certificate --certificate fileb://path/to/demo.madhusai.me.crt \  --private-key fileb://path/to/demo.madhusai.me.key \  --certificate-chain fileb://path/to/demo.madhusai.me.ca-bundle

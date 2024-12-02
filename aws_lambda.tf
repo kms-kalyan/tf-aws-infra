@@ -29,11 +29,26 @@ resource "aws_iam_policy" "lambda_exec_policy" {
           "logs:*",
           "cloudwatch:*",
           "sns:*",
-          "secretsmanager:GetSecretValue",
-          "rds-db:connect"
+          "rds-db:connect",
+          "kms:CreateKey",
+          "kms:DescribeKey",
+          "kms:EnableKeyRotation",
+          "kms:ListKeys",
+          "kms:ListAliases",
+          "kms:GetKeyRotationStatus",
+          "kms:GetKeyPolicy",
+          "kms:*",
+          "secretsmanager:GetSecretValue"
         ],
         Effect : "Allow",
         Resource : "*"
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "kms:Decrypt"
+        ],
+        "Resource" : "*"
       }
     ]
   })
@@ -80,17 +95,6 @@ resource "aws_lambda_permission" "allow_sns_invoke" {
   source_arn    = aws_sns_topic.user_verification_topic.arn
 }
 
-
-# resource "aws_s3_bucket" "lambda_bucket" {
-#   bucket = "my-lambda-code-bucket"
-#   acl    = "private"
-
-#   tags = {
-#     Name        = "LambdaCodeBucket"
-#     Environment = "Development"
-#   }
-# }
-
 resource "aws_s3_object" "lambda_jar" {
   bucket = aws_s3_bucket.my_bucket.id
   key    = "serverless.jar"
@@ -108,4 +112,15 @@ resource "aws_lambda_function" "user_verification_lambda" {
   source_code_hash = filebase64sha256(var.jar_path)
   timeout          = 30
   memory_size      = 512
+
+  environment {
+    variables = {
+      DB_USER       = aws_db_instance.my_rds_instance.username
+      DB_PASS       = aws_db_instance.my_rds_instance.password
+      DB_NAME       = aws_db_instance.my_rds_instance.username
+      INSTANCE_HOST = aws_db_instance.my_rds_instance.address
+      API_KEY       = var.sendgrid_api_key
+      VERIFY_LINK   = var.verify_link
+    }
+  }
 }

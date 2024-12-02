@@ -20,11 +20,13 @@ resource "aws_db_instance" "my_rds_instance" {
   vpc_security_group_ids = [aws_security_group.db_security_group.id]
   publicly_accessible    = false
   multi_az               = false
-  username               = "csye6225"
-  password               = "Cloud6225"
+  username               = jsondecode(data.aws_secretsmanager_secret_version.db_credentials_version_data.secret_string).username
+  password               = jsondecode(data.aws_secretsmanager_secret_version.db_credentials_version_data.secret_string).password
   port                   = 3306
   parameter_group_name   = aws_db_parameter_group.mysql_param_group.name
   skip_final_snapshot    = true
+  # kms_key_id             = aws_kms_key.rds_key.arn
+  # storage_encrypted      = true
 
   tags = {
     Name = "csye6225"
