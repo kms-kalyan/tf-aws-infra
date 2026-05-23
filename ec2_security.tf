@@ -27,7 +27,6 @@ echo "DB_PORT=5432" | sudo tee -a /opt/webapp/app/.env > /dev/null
 echo "DB_HOST=${aws_db_instance.my_rds_instance.address}" | sudo tee -a /opt/webapp/app/.env > /dev/null
 echo "S3_BUCKET_NAME=${aws_s3_bucket.my_bucket.bucket}" | sudo tee -a /opt/webapp/app/.env > /dev/null
 echo "SNS_TOPIC_ARN=${aws_sns_topic.user_verification_topic.arn}" | sudo tee -a /opt/webapp/app/.env > /dev/null
-echo "SEND_GRID_API_KEY= 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" | sudo tee -a /opt/webapp/app/.env > /dev/null
 SECRET=$(aws secretsmanager get-secret-value --secret-id db-credentials --query SecretString --output text)
 DB_USERNAME=$(echo $SECRET | jq -r '.username')
 DB_PASSWORD=$(echo $SECRET | jq -r '.password')
